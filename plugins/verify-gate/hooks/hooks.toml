@@ -1,0 +1,14 @@
+# ChipAgents hooks for verify-gate (Claude Code uses hooks.json instead).
+# After every agent turn, run the project's verify script; while it fails,
+# ChipAgents reruns the agent with the failure output.
+
+# Upper bound on reruns per turn. A post_turn_restarts set earlier in the
+# hierarchy (e.g. the project's .chipagents/hooks.toml) takes precedence.
+post_turn_restarts = 10
+
+[[post_turn]]
+type = "bash"
+command = 'bash "${CHIPAGENTS_PLUGIN_ROOT}/hooks/verify-gate.sh"'
+blocking = true
+enable_restarts = true
+timeout = 600

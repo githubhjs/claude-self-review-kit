@@ -1,0 +1,27 @@
+{
+  "testname": "verify-gate-reruns-agent",
+  "steps": [
+    {
+      "stepName": "ask-for-draft",
+      "testPrompt": "When the CLI is ready, type `Create a file handoff.txt that contains exactly one line: status: draft` and submit it. Then wait until the agent has completely finished, including any automatic reruns triggered by post-turn hooks, before finishing this step.",
+      "assertions": [
+        {
+          "assertionName": "gate-forced-fix",
+          "type": "bash",
+          "payload": [
+            "if ! grep -qx 'status: ready' handoff.txt; then",
+            "  echo 'Expected verify-gate to make the agent change handoff.txt to: status: ready'",
+            "  cat handoff.txt 2>/dev/null",
+            "  exit 1",
+            "fi"
+          ]
+        },
+        {
+          "assertionName": "rerun-visible",
+          "type": "agentic",
+          "payload": "Pass only if the transcript or screen shows a post-turn hook (verify-gate) failure followed by the agent running again and changing handoff.txt."
+        }
+      ]
+    }
+  ]
+}

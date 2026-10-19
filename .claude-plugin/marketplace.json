@@ -1,0 +1,61 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "self-review-kit",
+  "description": "Offline copy of Anthropic's self-review and keep-going plugins, plus a test-gated Stop hook",
+  "owner": {
+    "name": "Josh_HUANG",
+    "email": "HuangJS@Gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "ralph-loop",
+      "description": "Interactive self-referential AI loops for iterative development, implementing the Ralph Wiggum technique. Claude works on the same task repeatedly, seeing its previous work, until completion.",
+      "author": {
+        "name": "Anthropic",
+        "email": "support@anthropic.com"
+      },
+      "source": "./plugins/ralph-loop",
+      "category": "development"
+    },
+    {
+      "name": "pr-review-toolkit",
+      "description": "Comprehensive PR review agents specializing in comments, tests, error handling, type design, code quality, and code simplification",
+      "author": {
+        "name": "Anthropic",
+        "email": "support@anthropic.com"
+      },
+      "source": "./plugins/pr-review-toolkit",
+      "category": "productivity"
+    },
+    {
+      "name": "code-review",
+      "description": "Automated code review for pull requests using multiple specialized agents with confidence-based scoring to filter false positives",
+      "author": {
+        "name": "Anthropic",
+        "email": "support@anthropic.com"
+      },
+      "source": "./plugins/code-review",
+      "category": "productivity"
+    },
+    {
+      "name": "code-simplifier",
+      "description": "Agent that simplifies and refines code for clarity, consistency, and maintainability while preserving functionality. Focuses on recently modified code.",
+      "author": {
+        "name": "Anthropic",
+        "email": "support@anthropic.com"
+      },
+      "source": "./plugins/code-simplifier",
+      "category": "productivity"
+    },
+    {
+      "name": "verify-gate",
+      "description": "Stop hook that keeps Claude working while the project's .claude/verify.sh fails (tests, lint, build). Projects without that script are unaffected.",
+      "author": {
+        "name": "Josh_HUANG",
+        "email": "HuangJS@Gmail.com"
+      },
+      "source": "./plugins/verify-gate",
+      "category": "development"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "verify-gate",
+  "version": "1.1.0",
+  "description": "Stop hook that keeps Claude working while the project's .claude/verify.sh fails (tests, lint, build). Projects without that script are unaffected.",
+  "author": {
+    "name": "Josh_HUANG",
+    "email": "HuangJS@Gmail.com"
+  }
+}

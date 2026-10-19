@@ -1,0 +1,4 @@
+{
+  "name": "verify-gate",
+  "hooks": "./hooks/hooks.toml"
+}
