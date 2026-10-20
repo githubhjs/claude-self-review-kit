@@ -10,6 +10,10 @@ set -uo pipefail
 # Drain the hook input; this hook does not need it.
 cat > /dev/null
 
+# Inner runs (a reviewer started by review-gate, chip-swarm investigators) load
+# the same hooks; they are read-only and must not be pushed to keep working.
+[[ -z "${CHIPAGENTS_HOOKS_INNER:-}" ]] || exit 0
+
 VERIFY_SCRIPT=
 for candidate in .claude/verify.sh .chipagents/verify.sh; do
   if [[ -f "$candidate" ]]; then

@@ -2,9 +2,12 @@
 # After every agent turn, run the project's verify script; while it fails,
 # ChipAgents reruns the agent with the failure output.
 
-# Upper bound on reruns per turn. A post_turn_restarts set earlier in the
-# hierarchy (e.g. the project's .chipagents/hooks.toml) takes precedence.
-post_turn_restarts = 10
+# post_turn_restarts below is very likely NOT what you get:
+#   - measured: reruns = post_turn_restarts - 1 (the value counts attempts)
+#   - the first value found while loading wins, so one in ~/.chipagents or in
+#   the workspace beats this plugin's value
+# Set the budget you want in the WORKSPACE .chipagents/hooks.toml.
+post_turn_restarts = 11
 
 [[post_turn]]
 type = "bash"

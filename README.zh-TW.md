@@ -232,8 +232,9 @@ cp /path/to/claude-self-review-kit/examples/verify.sh <你的專案>/.claude/ver
 3. 新增 `verify-gate` plugin、`examples/verify.sh`。
 4. 為 ChipAgents 新增以下檔案，Claude Code 會忽略它們（見第 13 節）：
    - `ralph-loop` 和 `verify-gate` 各多一個 `.chipagents-plugin/plugin.json`、`hooks/hooks.toml`
-   - `ralph-loop/hooks/stop-hook-chipagents.sh`
+   - `ralph-loop/hooks/post-turn-ralph.sh`
    - `chipagents-test/`
+5. `code-simplifier`（以及 pr-review-toolkit 裡的 code-simplifier agent）在原本的 TypeScript 規範之外，加入 SystemVerilog/RTL 規範，並把「保留功能」在 RTL 的意義定義為 cycle-accurate 等價。
 
 ## 10. 疑難排解
 
@@ -273,7 +274,7 @@ ChipAgents 可以用 `--type claude` 安裝 Claude Code 格式的 marketplace。
 | `verify-gate` | ✅ 已移植 | 改用 `post_turn` hook 加上 `blocking = true`、`enable_restarts = true`：檢查失敗時，ChipAgents 會帶著錯誤訊息讓 agent 重跑 |
 | `ralph-loop` | ✅ 已移植，但用法不同 | 用終端機啟動，用檔案通知完成（見下方） |
 | `pr-review-toolkit` | ✅ 可用 | agents 和 commands 都支援。`model`、`color`、`allowed-tools` 這些 Claude 專用欄位可能會被忽略 |
-| `code-simplifier` | ⚠️ 可載入 | 內容是針對 JS/React 寫的，不適合 RTL |
+| `code-simplifier` | ✅ 可用 | 除了原本的 JS/TS 規範，已加入 SystemVerilog/RTL 規範 |
 | `code-review` | ⚠️ 可載入 | 只能用在 GitHub PR，需要 `gh` |
 
 Claude Code 內建的 `/code-review`、`/simplify`、`/loop` 不是 plugin，ChipAgents 沒有這些功能。
@@ -293,7 +294,7 @@ chipagents plugin install pr-review-toolkit@self-review-kit
 
 - 在專案放 `.chipagents/verify.sh`。`.claude/verify.sh` 也可以，兩者同時存在時優先使用 `.claude/verify.sh`，所以同一份檢查腳本兩邊共用。
 - 每個 agent turn 結束後會跑一次。失敗時（exit 非 0），ChipAgents 會把最後 80 行錯誤訊息交給 agent，讓它**重跑並修正**。
-- 重跑次數上限由 `post_turn_restarts` 決定。plugin 預設 10 次，另外還有連續 10 次的保護上限。
+- 重跑次數 = `post_turn_restarts` − 1（實測）。plugin 設的是 11，但 `~/.chipagents` 或 workspace 裡的值會優先，所以請在 workspace 的 `.chipagents/hooks.toml` 設定額度。連續 10 次的保護上限仍然有效。
 - 單次檢查最長 600 秒。
 - RTL 專案的 verify.sh 可以放 `slang`、`verilator --lint-only` 或小型 regression。ChipAgents 也有內建的 `slang` hook 型別可以搭配使用。
 
@@ -317,19 +318,23 @@ ChipAgents 的 hook 只拿得到「上一輪的 transcript 文字」，裡面可
    rm .claude/ralph-loop.local.md
    ```
 
-- `post_turn_restarts` 必須**大於或等於** `--max-iterations`。plugin 預設 20 次。
+- 重跑次數 = `post_turn_restarts` − 1（實測），所以要在 **workspace** 的 `.chipagents/hooks.toml` 把 `post_turn_restarts` 設成至少 `--max-iterations` + 1。plugin 自己的值（21）會被 `~/.chipagents` 或 workspace 裡的值蓋掉。
+- 狀態檔也可以放在 `.chipagents/ralph-loop.local.md`，promise 檔一律放在它旁邊。在回覆裡印出暗號沒有用，因為 ChipAgents 會把 hook 的 stdout 餵回 transcript；只有寫檔才算數。
 - 這個 hook 只需要 bash，不需要 jq。
 
 ### 注意事項
 
-- **`post_turn_restarts` 以最先讀到的值為準。** ChipAgents 從目前的專案目錄往上找，再讀 `~/.chipagents`。如果專案的 `.chipagents/hooks.toml` 有設定這個值，會蓋掉 plugin 的設定。
+- **`post_turn_restarts` 以最先讀到的值為準**，`~/.chipagents` 或 workspace 裡的值會蓋掉 plugin 的值。重跑次數 = 這個值 − 1。
+- **安裝時要用和跑 session 相同版本的 ChipAgents。** `PATH` 上排在前面的若是較舊的 `chipagents`（0.20.2，而 session 跑的是 0.42.3），裝出來的 `installed.json` 沒有 `hooks` 欄位，hook 完全不會執行。
+- `chipagents plugin install` 對已安裝的 plugin 不會有任何動作；更新後要執行 `chipagents plugin update <plugin>@self-review-kit`。
+- ChipAgents hook 行為的實測結果整理在 [chipagents-loop-kit/docs/chipagents-hook-mechanics.md](https://github.com/githubhjs/chipagents-loop-kit/blob/main/docs/chipagents-hook-mechanics.md)（英文）。
 - **Preserved thinking 模型**（管理員設定了 `thinkingRequiresIdenticalPrefix`）：ChipAgents 文件提醒，`post_turn` 的 restart 可能讓之前的 thinking blocks 被丟掉。用這類模型時先小規模試用。
 - **shell**：ChipAgents 用 `$SHELL` 執行 hook。在 EDA 環境常見的 tcsh 下，指令只是 `bash "<路徑>"`，可以正常執行。
 - **E2E Mode 不是自動迴圈**。它是 ChipAgents CLI 的測試工具，每個測試上限是 50 個動作、10 分鐘。適合拿來驗證上面的設定有沒有生效。
 
 ### 驗證 ChipAgents 版的 verify-gate（E2E 測試）
 
-我手邊沒有 ChipAgents，**以上 ChipAgents 移植都只用模擬輸入測過腳本本身，還沒在真的 ChipAgents 裡跑過**。可以用下面的 E2E 測試驗證。
+這些移植使用的重跑機制（stdout + exit 1）和 ralph-loop 的 promise 檔，**已由 Josh_HUANG 在 ChipAgents 0.42.3 的 batch 模式實測過**；互動模式還沒實測。可以用下面的 E2E 測試驗證你的環境。
 
 ```bash
 mkdir /tmp/vg-test && cd /tmp/vg-test && git init -q && mkdir .chipagents

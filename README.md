@@ -266,8 +266,11 @@ Compared with `diff -r` against the official copies Claude Code downloads;
 4. Added files for ChipAgents, which Claude Code ignores (see section 13):
    - `ralph-loop` and `verify-gate` each gain `.chipagents-plugin/plugin.json`
      and `hooks/hooks.toml`
-   - `ralph-loop/hooks/stop-hook-chipagents.sh`
+   - `ralph-loop/hooks/post-turn-ralph.sh`
    - `chipagents-test/`
+5. `code-simplifier` (and the code-simplifier agent inside pr-review-toolkit)
+   gained SystemVerilog/RTL standards next to the original TypeScript ones, and
+   cycle-accurate equivalence as the RTL meaning of "preserve functionality".
 
 ## 10. Troubleshooting
 
@@ -310,7 +313,7 @@ ChipAgents can install Claude Code marketplaces with `--type claude`, but it
 | `verify-gate` | ✅ Ported | Uses a `post_turn` hook with `blocking = true` and `enable_restarts = true`: when the check fails, ChipAgents reruns the agent with the error output |
 | `ralph-loop` | ✅ Ported, used differently | Started from a terminal; completion is signalled with a file (see below) |
 | `pr-review-toolkit` | ✅ Works | Agents and commands are supported. Claude-only fields such as `model`, `color` and `allowed-tools` may be ignored |
-| `code-simplifier` | ⚠️ Loads | Its rules are written for JS/React, not RTL |
+| `code-simplifier` | ✅ Works | Now carries SystemVerilog/RTL standards next to the JS/TS ones |
 | `code-review` | ⚠️ Loads | GitHub PRs only; needs `gh` |
 
 Claude Code's built-in `/code-review`, `/simplify` and `/loop` are not plugins,
@@ -333,8 +336,9 @@ If you install inside a running session, run `/reload` afterwards.
   when both exist `.claude/verify.sh` wins, so one script can serve both tools.
 - It runs after every agent turn. On failure (non-zero exit) ChipAgents hands
   the last 80 lines of output to the agent and **reruns it to fix them**.
-- The number of reruns is capped by `post_turn_restarts` (the plugin sets 10),
-  plus the 10-blocks-in-a-row safety limit.
+- Reruns = `post_turn_restarts` − 1 (measured). The plugin sets 11, but a value
+  in `~/.chipagents` or the workspace wins, so set the budget in the workspace
+  `.chipagents/hooks.toml`. The 10-blocks-in-a-row limit still applies.
 - One check may take up to 600 seconds.
 - For RTL projects, verify.sh can run `slang`, `verilator --lint-only` or a
   small regression. ChipAgents also has a built-in `slang` hook type you can
@@ -366,15 +370,27 @@ file**.
    rm .claude/ralph-loop.local.md
    ```
 
-- `post_turn_restarts` must be **at least** `--max-iterations`. The plugin
-  sets 20.
+- Reruns = `post_turn_restarts` − 1 (measured), so set
+  `post_turn_restarts` to at least `--max-iterations` + 1 in the **workspace**
+  `.chipagents/hooks.toml`; the plugin's own value (21) is overridden by any
+  value in `~/.chipagents` or the workspace.
+- The state file may also live in `.chipagents/ralph-loop.local.md`; the
+  promise file always sits beside it. Printing the phrase in a reply has no
+  effect, because ChipAgents feeds a hook's stdout back into the transcript;
+  only the file counts.
 - This hook needs only bash, not jq.
 
 ### Notes
 
-- **The first `post_turn_restarts` value found wins.** ChipAgents searches
-  from the project directory upwards, then `~/.chipagents`. A value in the
-  project's `.chipagents/hooks.toml` overrides the plugin's.
+- **The first `post_turn_restarts` value found wins**, and a value in
+  `~/.chipagents` or the workspace overrides a plugin's. Reruns = value − 1.
+- **Install with the ChipAgents version that runs your sessions.** A plugin
+  installed by an older `chipagents` earlier on `PATH` (0.20.2 versus 0.42.3)
+  got no `hooks` entry in `installed.json`, so its hooks never ran.
+- `chipagents plugin install` does nothing for an installed plugin; after
+  updating, run `chipagents plugin update <plugin>@self-review-kit`.
+- Measured ChipAgents hook behaviour is collected in
+  [chipagents-loop-kit/docs/chipagents-hook-mechanics.md](https://github.com/githubhjs/chipagents-loop-kit/blob/main/docs/chipagents-hook-mechanics.md).
 - **Preserved-thinking models** (the administrator set
   `thinkingRequiresIdenticalPrefix`): the ChipAgents docs warn that
   `post_turn` restarts can cause earlier thinking blocks to be dropped. Try it
@@ -387,8 +403,9 @@ file**.
 
 ### Checking verify-gate in ChipAgents (E2E test)
 
-**The ChipAgents ports have only been tested with simulated input to the
-scripts, not inside real ChipAgents.** Use this E2E test to check them:
+The rerun mechanism these ports use (stdout + exit 1) and ralph-loop's promise
+file were **measured on ChipAgents 0.42.3 in batch mode** by Josh_HUANG;
+interactive mode was not measured. Use this E2E test to check your setup:
 
 ```bash
 mkdir /tmp/vg-test && cd /tmp/vg-test && git init -q && mkdir .chipagents

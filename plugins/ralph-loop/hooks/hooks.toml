@@ -1,15 +1,20 @@
 # ChipAgents hooks for ralph-loop (Claude Code uses hooks.json instead).
-# While a loop started by scripts/setup-ralph-loop.sh is active, every
-# agent turn ends with a rerun of the same task until the agent writes the
-# completion promise to .claude/ralph-loop.promise or max iterations is hit.
-
-# Upper bound on reruns per turn; keep it >= --max-iterations. A value set
-# earlier in the hierarchy (e.g. the project's .chipagents/hooks.toml) wins.
-post_turn_restarts = 20
+# While a loop started by scripts/setup-ralph-loop.sh is active, every agent
+# turn ends with a rerun of the same task until the agent writes the
+# completion promise to ralph-loop.promise (beside the state file) or
+# max_iterations is reached. See post-turn-ralph.sh.
+#
+# post_turn_restarts below is very likely NOT what you get:
+#   - measured: reruns = post_turn_restarts - 1 (the value counts attempts)
+#   - the first value found while loading wins, so one in ~/.chipagents or in
+#     the workspace beats this plugin's value
+# For a loop of N iterations, set post_turn_restarts = N + 1 (or more) in the
+# WORKSPACE .chipagents/hooks.toml.
+post_turn_restarts = 21
 
 [[post_turn]]
 type = "bash"
-command = 'bash "${CHIPAGENTS_PLUGIN_ROOT}/hooks/stop-hook-chipagents.sh"'
+command = 'bash "${CHIPAGENTS_PLUGIN_ROOT}/hooks/post-turn-ralph.sh"'
 blocking = true
 enable_restarts = true
 timeout = 30
